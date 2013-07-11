@@ -35,12 +35,26 @@ class Web extends Api implements MailInterface
       'api_user'  => $this->username,
       'api_key'   => $this->password,
       'subject'   => $mail->getSubject(),
-      'html'      => $mail->getHtml(),
-      'text'      => $mail->getText(),
       'from'      => $mail->getFrom(),
       'to'        => $mail->getFrom(),
       'x-smtpapi' => $mail->getHeadersJson()
     );
+
+    if($mail->getHtml()) {
+      $params['html'] = $mail->getHtml();
+    }
+
+    if($mail->getText()) {
+      $params['text'] = $mail->getText();
+    }
+
+    if(($fromname = $mail->getFromName())) {
+      $params['fromname'] = $fromname;
+    }
+
+    if(($replyto = $mail->getReplyTo())) {
+      $params['replyto'] = $replyto;
+    }
 
     // determine if we should send our recipients through our headers,
     // and set the properties accordingly
@@ -58,7 +72,7 @@ class Web extends Api implements MailInterface
       $params['to'] = $mail->getTos();
     }
 
-    
+
     if($mail->getAttachments())
     {
       foreach($mail->getAttachments() as $attachment)
@@ -117,16 +131,17 @@ class Web extends Api implements MailInterface
       $this->_arrayToUrlPart($mail->getCcs(), "cc");
 
     $session = curl_init($request);
-    curl_setopt ($session, CURLOPT_POST, true);
-    curl_setopt ($session, CURLOPT_POSTFIELDS, $data);
-
+    curl_setopt($session, CURLOPT_POST, true);
+    curl_setopt($session, CURLOPT_POSTFIELDS, $data);
     curl_setopt($session, CURLOPT_HEADER, false);
     curl_setopt($session, CURLOPT_RETURNTRANSFER, true);
-     
+    curl_setopt($session, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_setopt($session, CURLOPT_TIMEOUT, 30);
+
     // obtain response
     $response = curl_exec($session);
     curl_close($session);
 
     return $response;
-  }  
+  }
 }
