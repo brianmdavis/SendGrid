@@ -15,7 +15,13 @@ class Smtp extends Api implements MailInterface
 
   public function __construct($username, $password)
   {
-    require_once ROOT_DIR . 'lib/swift/swift_required.php';
+    /* check for SwiftMailer,
+     * if it doesn't exist, try loading
+     * it from Pear
+     */
+    if (!class_exists('Swift')) {
+      require_once ROOT_DIR . 'lib/swift/swift_required.php';
+    }
     call_user_func_array("parent::__construct", func_get_args());
 
     //set the default port
@@ -70,11 +76,23 @@ class Smtp extends Api implements MailInterface
      * ignored anyway.
      */
     $message->setTo($mail->getFrom());
-    $message->setFrom($mail->getFrom());
-    $message->setBody($mail->getHtml(), 'text/html');
-    $message->addPart($mail->getText(), 'text/plain');
+    $message->setFrom($mail->getFrom(true));
     $message->setCc($mail->getCcs());
     $message->setBcc($mail->getBccs());
+
+    if ($mail->getHtml())
+    {
+      $message->setBody($mail->getHtml(), 'text/html');
+      if ($mail->getText()) $message->addPart($mail->getText(), 'text/plain');
+    }
+    else
+    {
+      $message->setBody($mail->getText(), 'text/plain');
+    }
+
+    if(($replyto = $mail->getReplyTo())) {
+      $message->setReplyTo($replyto);
+    }
 
     // determine whether or not we can use SMTP recipients (non header based)
     if($mail->useHeaders())
@@ -131,10 +149,16 @@ class Smtp extends Api implements MailInterface
   public function send(Mail $mail)
   {
     $swift = $this->_getSwiftInstance($this->port);
-
     $message = $this->_mapToSwift($mail);
 
-    $swift->send($message, $failures);
+    try 
+    {
+      $swift->send($message, $failures);
+    }
+    catch(\Swift_TransportException $e)
+    {
+      throw new AuthException('Bad username / password');
+    }
 
     return true;
   }
